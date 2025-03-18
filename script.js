@@ -6,54 +6,151 @@ GGR472 LAB 4: Incorporating GIS Analysis into web maps using Turf.js
 Step 1: INITIALIZE MAP
 --------------------------------------------------------------------*/
 // Define access token
-mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbmZvcmRjaGFuZyIsImEiOiJjbTVvZHBxOHUwa3p2Mmxwbm90N2I0MzZqIn0.JfQLnEhITEAZl2kHoQP7rA'; //****ADD YOUR PUBLIC ACCESS TOKEN*****
+mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbmZvcmRjaGFuZyIsImEiOiJjbTVvZHBxOHUwa3p2Mmxwbm90N2I0MzZqIn0.JfQLnEhITEAZl2kHoQP7rA';
 
 // Initialize map and edit to your preference
 const map = new mapboxgl.Map({
     container: 'map', // container id in HTML
-    style: 'mapbox://styles/stanfordchang/cm8epbdss00ie01s513thacn8',  // ****ADD MAP STYLE HERE *****
+    style: 'mapbox://styles/stanfordchang/cm8epbdss00ie01s513thacn8',
     center: [-79.39, 43.65],  // starting point, longitude/latitude
     zoom: 11 // starting zoom level
 });
 
+// Add map controls
+map.addControl(new mapboxgl.NavigationControl());
+map.addControl(new mapboxgl.FullscreenControl());
 
 /*--------------------------------------------------------------------
 Step 2: VIEW GEOJSON POINT DATA ON MAP
 --------------------------------------------------------------------*/
-//HINT: Create an empty variable
-//      Use the fetch method to access the GeoJSON from your online repository
-//      Convert the response to JSON format and then store the response in your new variable
 
+// Create empty variable
+let collisionData;
 
+// Map load event handler
+map.on('load', () => {
+
+    // Fetch GeoJSON from URL and store response in variable
+    fetch('https://raw.githubusercontent.com/stanford-c/ggr472-lab4/main/data/pedcyc_collision_06-21.geojson')
+        .then(response => response.json())
+        .then(response => {
+            console.log(response); // Check response in console
+            collisionData = response; // Store GeoJSON as variable using URL from response
+
+        // Add collision points source
+        map.addSource('collisions', {
+            type: 'geojson',
+            data: collisionData
+        });
+
+        // Add collision points layer
+        map.addLayer({
+            id: 'collision-points',
+            type: 'circle',
+            source: 'collisions',
+            paint: {
+                'circle-radius': 3,
+                'circle-color': '#FF5733',
+                'circle-opacity': 0.7
+            }
+        });
 
 /*--------------------------------------------------------------------
-    Step 3: CREATE BOUNDING BOX AND HEXGRID
+Step 3: CREATE BOUNDING BOX AND HEXGRID
 --------------------------------------------------------------------*/
-//HINT: All code to create and view the hexgrid will go inside a map load event handler
-//      First create a bounding box around the collision point data
-//      Access and store the bounding box coordinates as an array variable
-//      Use bounding box coordinates as argument in the turf hexgrid function
-//      **Option: You may want to consider how to increase the size of your bbox to enable greater geog coverage of your hexgrid
-//                Consider return types from different turf functions and required argument types carefully here
 
+        // Create bounding box
+        let envresult = turf.envelope(collisionData); // Store bounding box around collision points as a variable
+        let bbox = envresult.bbox; // Access and store bounding box coordinates as an array variable
+        let bboxPolygon = turf.bboxPolygon(bbox); // Create Polygon feature from bbox array variable
+        let bboxPScaled = turf.transformScale(bboxPolygon, 1.1); // Enlarge bbox feature by 10%
+        let bboxScaled = turf.bbox(bboxPScaled); // Store the coordinates of the enlarged bbox feature
 
+        // Create grid of 0.5km hexagons inside enlarged bbox coordinates
+        let hexgrid = turf.hexGrid(bboxScaled, 0.5, {units: 'kilometres'});
 
 /*--------------------------------------------------------------------
 Step 4: AGGREGATE COLLISIONS BY HEXGRID
 --------------------------------------------------------------------*/
-//HINT: Use Turf collect function to collect all '_id' properties from the collision points data for each heaxagon
-//      View the collect output in the console. Where there are no intersecting points in polygons, arrays will be empty
 
+        let collishex = turf.collect(hexgrid, collisionData, '_id', 'values');
 
+        // Initialize maximum collision count variable
+        let maxcollis = 0;
 
-// /*--------------------------------------------------------------------
-// Step 5: FINALIZE YOUR WEB MAP
-// --------------------------------------------------------------------*/
-//HINT: Think about the display of your data and usability of your web map.
-//      Update the addlayer paint properties for your hexgrid using:
-//        - an expression
-//        - The COUNT attribute
-//        - The maximum number of collisions found in a hexagon
-//      Add a legend and additional functionality including pop-up windows
+        // Loop through each hexagon feature
+        collishex.features.forEach((feature) => {
+            feature.properties.COUNT = feature.properties.values.length // Create COUNT property set to the number of collision points inside
+            
+            // If this hexagon contains more collision points than the current maximum, update the maximum collision count variable
+            if (feature.properties.COUNT > maxcollis) {
+                maxcollis = feature.properties.COUNT
+            }
+        });
+        console.log(maxcollis);
 
+        // View hexgrid
+        map.addSource('hexgrid', {
+            type: 'geojson',
+            data: collishex
+        });
+        
+        map.addLayer({
+            id: 'hexgrid-layer',
+            type: 'fill',
+            source: 'hexgrid',
+            paint: {
+                'fill-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'COUNT'],
+                    // Red rose wine colour palette
+                    0, '#f2f2f2',
+                    10, '#ffb9b9',
+                    20, '#ee7272',
+                    30, '#a31818',
+                    40, '#6d0202',
+                    50, '#360000'
+                ],
+                'fill-opacity': 0.8,
+                // 'fill-outline-color': '#000'
+            }
+        });
 
+    });
+});
+
+/*--------------------------------------------------------------------
+Step 5: FINALIZE WEB MAP
+--------------------------------------------------------------------*/
+
+// Add legend
+const legend = document.getElementById('legend');
+const legendlabels = ['0', '10', '20', '30', '40', '50'];
+const legendcolours = ['#f2f2f2', '#ffb9b9', '#ee7272', '#a31818', '#6d0202', '#360000'];
+
+legendlabels.forEach((label, i) => {
+    const colour = legendcolours[i];
+
+    const item = document.createElement('div'); // Create row for each layer
+    const key = document.createElement('span'); // Create key for each row
+
+    key.className = 'legend-key'; // Properties defined in style.css
+    key.style.backgroundColor = colour; // Colour retrieved from layers array
+
+    const value = document.createElement('span'); // Add value variable to legend row
+    value.innerHTML = `${label}`; // Assign value variable text based on label
+
+    item.appendChild(key); // Add key to legend row
+    item.appendChild(value); // Add value to legend row
+
+    legend.appendChild(item); // Add row to legend
+});
+
+// Show pop-up window when clicked
+map.on('click', 'hexgrid-layer', (e) => {
+    new mapboxgl.Popup()
+    .setLngLat(e.lngLat)
+    .setHTML(`Collisions: ${e.features[0].properties.COUNT}`)
+    .addTo(map);
+});
