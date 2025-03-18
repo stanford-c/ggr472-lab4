@@ -11,7 +11,7 @@ mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhbmZvcmRjaGFuZyIsImEiOiJjbTVvZHBxOHUwa3p2M
 // Initialize map and edit to your preference
 const map = new mapboxgl.Map({
     container: 'map', // container id in HTML
-    style: 'mapbox://styles/stanfordchang/cm8epbdss00ie01s513thacn8',
+    style: 'mapbox://styles/stanfordchang/cm8f523xv00ah01ryflkzfojj',
     center: [-79.39, 43.65],  // starting point, longitude/latitude
     zoom: 11 // starting zoom level
 });
@@ -50,8 +50,7 @@ map.on('load', () => {
             source: 'collisions',
             paint: {
                 'circle-radius': 3,
-                'circle-color': '#FF5733',
-                'circle-opacity': 0.7
+                'circle-color': '#ff0000',
             }
         });
 
@@ -99,21 +98,22 @@ Step 4: AGGREGATE COLLISIONS BY HEXGRID
             id: 'hexgrid-layer',
             type: 'fill',
             source: 'hexgrid',
+            filter: ['>', ['get', 'COUNT'], 0], // Hide hexagons containing zero colliisons
             paint: {
                 'fill-color': [
                     'interpolate',
                     ['linear'],
                     ['get', 'COUNT'],
                     // Red rose wine colour palette
-                    0, '#f2f2f2',
+                    1, '#f2f2f2',
                     10, '#ffb9b9',
                     20, '#ee7272',
                     30, '#a31818',
                     40, '#6d0202',
                     50, '#360000'
                 ],
-                'fill-opacity': 0.8,
-                // 'fill-outline-color': '#000'
+                'fill-opacity': 0.7,
+                'fill-outline-color': '#000'
             }
         });
 
@@ -124,9 +124,11 @@ Step 4: AGGREGATE COLLISIONS BY HEXGRID
 Step 5: FINALIZE WEB MAP
 --------------------------------------------------------------------*/
 
-// Add legend
+/*------------------------------
+LEGEND
+--------------------------------*/
 const legend = document.getElementById('legend');
-const legendlabels = ['0', '10', '20', '30', '40', '50'];
+const legendlabels = ['< 10', '10-19', '20-29', '30-39', '40-49', '50+'];
 const legendcolours = ['#f2f2f2', '#ffb9b9', '#ee7272', '#a31818', '#6d0202', '#360000'];
 
 legendlabels.forEach((label, i) => {
@@ -147,10 +149,61 @@ legendlabels.forEach((label, i) => {
     legend.appendChild(item); // Add row to legend
 });
 
+
+/*------------------------------
+MOUSE EVENTS
+--------------------------------*/
+
 // Show pop-up window when clicked
 map.on('click', 'hexgrid-layer', (e) => {
     new mapboxgl.Popup()
-    .setLngLat(e.lngLat)
-    .setHTML(`Collisions: ${e.features[0].properties.COUNT}`)
-    .addTo(map);
+        .setLngLat(e.lngLat)
+        .setHTML(`Collisions: ${e.features[0].properties.COUNT}`)
+        .addTo(map);
+});
+
+/*------------------------------
+LISTENERS FOR HTML ELEMENTS
+--------------------------------*/
+// Toggle visibility of hexgrid
+let hexcheck = document.getElementById('hexcheck');
+
+hexcheck.addEventListener('click', () => {
+    if (hexcheck.checked) {
+        hexcheck.checked = true;
+        map.setLayoutProperty('hexgrid-layer', 'visibility', 'visible');
+    }
+    else {
+        hexcheck.checked = false;
+        map.setLayoutProperty('hexgrid-layer', 'visibility', 'none');
+    }
+});
+
+
+// Toggle visibility of collisions
+let collisioncheck = document.getElementById('collisioncheck');
+
+collisioncheck.addEventListener('click', () => {
+    if (collisioncheck.checked) {
+        collisioncheck.checked = true;
+        map.setLayoutProperty('collision-points', 'visibility', 'visible');
+    }
+    else {
+        collisioncheck.checked = false;
+        map.setLayoutProperty('collision-points', 'visibility', 'none');
+    }
+});
+
+// Toggle visibility of legend
+let legendcheck = document.getElementById('legendcheck');
+
+legendcheck.addEventListener('click', () => {
+    if (legendcheck.checked) {
+        legendcheck.checked = true;
+        legend.style.display = 'block';
+    }
+    else {
+        legend.style.display = "none";
+        legendcheck.checked = false;
+    }
 });
