@@ -103,50 +103,51 @@ Step 4: AGGREGATE COLLISIONS BY HEXGRID
                 'fill-color': [
                     'interpolate',
                     ['linear'],
-                    ['get', 'COUNT'],
-                    // Red rose wine colour palette
-                    1, '#f2f2f2',
-                    10, '#ffb9b9',
-                    20, '#ee7272',
-                    30, '#a31818',
-                    40, '#6d0202',
-                    50, '#360000'
+                    // Standardize the collision count
+                    ['/', ['to-number', ['get', 'COUNT']], maxcollis],
+                    0.0, '#f2f2f2',
+                    0.2, '#ffb9b9',
+                    0.4, '#ee7272',
+                    0.6, '#a31818',
+                    0.8, '#6d0202',
+                    1.0, '#360000'
                 ],
                 'fill-opacity': 0.7,
                 'fill-outline-color': '#000'
             }
         });
 
-    });
-});
-
 /*--------------------------------------------------------------------
 Step 5: FINALIZE WEB MAP
 --------------------------------------------------------------------*/
+        /*------------------------------
+        CONTINUOUS LEGEND
+        --------------------------------*/
+        const legend = document.getElementById('legend-bar');
 
-/*------------------------------
-LEGEND
---------------------------------*/
-const legend = document.getElementById('legend');
-const legendlabels = ['< 10', '10-19', '20-29', '30-39', '40-49', '50+'];
-const legendcolours = ['#f2f2f2', '#ffb9b9', '#ee7272', '#a31818', '#6d0202', '#360000'];
+        const scale = document.createElement('div'); // Create container for scale
+        scale.classList.add('legend-scale');
 
-legendlabels.forEach((label, i) => {
-    const colour = legendcolours[i];
+        const minlabel = document.createElement('span');
+        minlabel.classList.add('legend-label-min'); // From style.css
+        minlabel.textContent = '0';
 
-    const item = document.createElement('div'); // Create row for each layer
-    const key = document.createElement('span'); // Create key for each row
+        const maxlabel = document.createElement('span');
+        maxlabel.classList.add('legend-label-max'); // From style.css
+        maxlabel.textContent = maxcollis.toString();
 
-    key.className = 'legend-key'; // Properties defined in style.css
-    key.style.backgroundColor = colour; // Colour retrieved from layers array
+        const colourbar = document.createElement('div');
+        colourbar.classList.add('colour-bar'); // From style.css
 
-    const value = document.createElement('span'); // Add value variable to legend row
-    value.innerHTML = `${label}`; // Assign value variable text based on label
+        // Append labels and colour bar to scale
+        scale.appendChild(minlabel);
+        scale.appendChild(colourbar);
+        scale.appendChild(maxlabel);
 
-    item.appendChild(key); // Add key to legend row
-    item.appendChild(value); // Add value to legend row
+        // Append scale to legend
+        legend.appendChild(scale);
 
-    legend.appendChild(item); // Add row to legend
+    });
 });
 
 
